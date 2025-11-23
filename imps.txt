@@ -1,0 +1,25 @@
+DOCTOR_PRIVATE_KEY="0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+
+PATIENT_PRIVATE_KEY="0xde9be858da4a475276426320d5e9262ecfc3ba460bfac56360bfa6c4c28b4ee0"//one in .env file
+
+DOCTOR_ADDRESS=0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+
+PATIENT_ADDRESS=0xdD2FD4581271e230360230F9337D5c0430Bf44C0 
+
+ipfs hash for adding record =bafkreibqvpgmo7lifnkzesc4z67m5ka7wywn7xjck7cxpipqmfbzhukndm
+
+
+record adding body
+{
+  "doctorPrivateKey": "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
+  "patientAddress": "0xdD2FD4581271e230360230F9337D5c0430Bf44C0",
+  "ipfsHash": "bafkreihpfl4cxg4hyxyi2mvxpafylepkkyggybtrzb66wt4id4ne2h53e4"
+}
+
+
+
+steps
+term 1:npx hardhat node
+term 2:  npx hardhat run scripts/deploy.js --network localhost
+changes in .env
+term 3: node server.js
