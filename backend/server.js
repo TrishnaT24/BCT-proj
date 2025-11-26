@@ -2,7 +2,10 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 require("dotenv").config();
+const cors = require("cors");
 
+
+app.use(cors());
 const controller = require("./controllers/contractController");
 
 // Registration

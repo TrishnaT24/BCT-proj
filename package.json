@@ -1,14 +1,1 @@
-{
-"name": "ehr-blockchain",
-"version": "1.0.0",
-"private": true,
-"scripts": {
-"compile": "hardhat compile",
-"test": "hardhat test",
-"deploy": "hardhat run scripts/deploy.js --network hardhat"
-},
-"devDependencies": {
-"@nomicfoundation/hardhat-toolbox": "^5.0.0",
-"hardhat": "^2.22.6"
-}
-}
+{"name":"ehr-blockchain","version":"1.0.0","private":true,"scripts":{"compile":"hardhat compile","test":"hardhat test","deploy":"hardhat run scripts/deploy.js --network hardhat"},"devDependencies":{"@nomicfoundation/hardhat-toolbox":"^5.0.0","hardhat":"^2.22.6"},"dependencies":{"dotenv":"^17.2.3"}}

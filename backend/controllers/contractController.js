@@ -41,7 +41,7 @@ exports.registerDoctor = async (req, res) => {
   }
 };
 
-// -------------------- ACCESS CONTROL ----------------------
+// -------------------- ACCESS ----------------------------
 
 exports.grantAccess = async (req, res) => {
   try {
@@ -97,12 +97,13 @@ exports.getRecord = async (req, res) => {
   try {
     const r = await contract.getRecord(req.params.id);
 
+    // Convert the BigInt timestamp to a string before sending
     const record = {
+      id: r.id.toString(), // Convert BigInt to string
       patient: r.patient,
-      diagnosis: r.diagnosis,
-      treatment: r.treatment,
+      dataHash: r.dataHash,
       doctor: r.doctor,
-      timestamp: r.timestamp.toString() // BigInt → string
+      timestamp: r.timestamp.toString(), // BigInt → string
     };
 
     res.json(record);
@@ -113,11 +114,17 @@ exports.getRecord = async (req, res) => {
 
 exports.getRecordsByPatient = async (req, res) => {
   try {
-    const ids = await contract.getRecordsByPatient(req.params.patient);
-    res.json({ records: ids });
+    const patientAddress = req.params.patient;
+
+    const recordIdsBigInt = await contract.getRecordsByPatient(patientAddress);
+    
+    // FIX: Map the array of BigInts to an array of Strings 
+    // to make it JSON serializable.
+    const recordIds = recordIdsBigInt.map(id => id.toString()); 
+
+    res.json(recordIds);
   } catch (err) {
+    // This will catch the error from safeFetch and send it back to the client
     res.status(500).json({ error: err.message });
   }
 };
-
-
