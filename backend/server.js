@@ -18,7 +18,8 @@ app.post("/access/revoke", controller.revokeAccess);
 
 // Records
 app.post("/record/add", controller.addRecord);
-app.get("/record/:id", controller.getRecord);
+// CHANGED: Using POST to pass doctorAddress in body for security check
+app.post("/record/view", controller.getRecord); 
 app.get("/records/:patient", controller.getRecordsByPatient);
 
 app.listen(process.env.PORT || 4000, () =>

@@ -51,39 +51,35 @@ contract EHRContract {
 
     function registerPatient(string memory name) external {
         require(!patients[msg.sender].exists, "Patient already registered");
-
-        patients[msg.sender] = Patient({
-            name: name,
-            exists: true
-        });
-
+        patients[msg.sender] = Patient(name, true);
         emit PatientRegistered(msg.sender, name);
     }
 
     function registerDoctor(string memory name) external {
         require(!doctors[msg.sender].exists, "Doctor already registered");
-
-        doctors[msg.sender] = Doctor({
-            name: name,
-            exists: true
-        });
-
+        doctors[msg.sender] = Doctor(name, true);
         emit DoctorRegistered(msg.sender, name);
+    }
+
+    // NEW: Check if a doctor is registered
+    function isDoctorRegistered(address doctor) public view returns (bool) {
+        return doctors[doctor].exists;
     }
 
     // -------------------------
     // ACCESS CONTROL
     // -------------------------
     function grantAccess(address doctor) external {
-        require(patients[msg.sender].exists, "Only patients can grant access");
-        require(doctors[doctor].exists, "Doctor not registered");
+        require(patients[msg.sender].exists, "Only registered patient can grant access");
+        require(doctors[doctor].exists, "Doctor is not registered");
+        require(!accessGranted[msg.sender][doctor], "Access already granted");
 
         accessGranted[msg.sender][doctor] = true;
         emit AccessGranted(msg.sender, doctor);
     }
 
     function revokeAccess(address doctor) external {
-        require(patients[msg.sender].exists, "Only patients can revoke access");
+        require(patients[msg.sender].exists, "Only registered patient can revoke access");
         require(accessGranted[msg.sender][doctor], "Access not granted");
 
         accessGranted[msg.sender][doctor] = false;
@@ -129,7 +125,8 @@ contract EHRContract {
 
         for (uint256 i = 1; i <= recordCount; i++) {
             if (records[i].patient == patient) {
-                result[idx++] = i;
+                result[idx] = records[i].id;
+                idx++;
             }
         }
 

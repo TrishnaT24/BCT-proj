@@ -1,6 +1,7 @@
 const { ethers } = require("ethers");
 const abi = require("../../artifacts/contracts/EHRContract.sol/EHRContract.json").abi;
 
+// NOTE: Ensure your .env variables are correctly set for RPC_URL, PRIVATE_KEY, and CONTRACT_ADDRESS.
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
@@ -95,20 +96,47 @@ exports.addRecord = async (req, res) => {
 
 exports.getRecord = async (req, res) => {
   try {
-    const r = await contract.getRecord(req.params.id);
+    // Get id and doctorAddress from the POST body
+    const { id, doctorAddress } = req.body;
 
-    // Convert the BigInt timestamp to a string before sending
+    if (!id || !doctorAddress) {
+      return res.status(400).json({ error: "Record ID and Doctor address are required." });
+    }
+    
+    // 1. Check if the Doctor is registered
+    const isRegistered = await contract.isDoctorRegistered(doctorAddress);
+    if (!isRegistered) {
+      // 403 Forbidden is the correct status code for unauthorized access
+      return res.status(403).json({ error: "Access Denied: The provided address is not registered as a doctor." });
+    }
+
+    // 2. Fetch the record
+    // Ethers should handle the string 'id' conversion to uint256
+    const r = await contract.getRecord(id);
+
+    // 3. Check for record existence: In Solidity, if a struct in a mapping is uninitialized,
+    // its fields are zeroed. Since record IDs start at 1, an ID of 0 means it does not exist.
+    if (r.id === 0n) {
+        return res.status(404).json({ error: `Record with ID ${id} not found.` });
+    }
+
+    // Convert BigInts to string for JSON serialization
     const record = {
-      id: r.id.toString(), // Convert BigInt to string
-      patient: r.patient,
-      dataHash: r.dataHash,
-      doctor: r.doctor,
-      timestamp: r.timestamp.toString(), // BigInt → string
+      ID: r.id.toString(),
+      Patient: r.patient,
+      Doctor: r.doctor,
+      'Data Hash (IPFS)': r.dataHash,
+      Timestamp: r.timestamp.toString(),
     };
 
     res.json(record);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Check if the error is a specific Ethers-related revert
+    console.error("Error in getRecord:", err);
+    // Returning the error message from the Ethers error if possible
+    res.status(500).json({ 
+        error: err.reason || err.message || "An unknown error occurred while fetching the record." 
+    });
   }
 };
 
@@ -118,13 +146,11 @@ exports.getRecordsByPatient = async (req, res) => {
 
     const recordIdsBigInt = await contract.getRecordsByPatient(patientAddress);
     
-    // FIX: Map the array of BigInts to an array of Strings 
-    // to make it JSON serializable.
+    // Map the array of BigInts to an array of Strings 
     const recordIds = recordIdsBigInt.map(id => id.toString()); 
 
     res.json(recordIds);
   } catch (err) {
-    // This will catch the error from safeFetch and send it back to the client
     res.status(500).json({ error: err.message });
   }
 };

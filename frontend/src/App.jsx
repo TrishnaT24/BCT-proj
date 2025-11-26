@@ -19,20 +19,31 @@ const SERVER_URL = 'http://localhost:4000';
 const safeFetch = async (url, options = {}) => {
     try {
         const response = await fetch(url, options);
-        // Note: The backend may not always return JSON on error (e.g., if Express fails before hitting the controller).
-        // Safely attempt to parse JSON.
         const contentType = response.headers.get("content-type");
         const isJson = contentType && contentType.indexOf("application/json") !== -1;
         
-        const data = isJson ? await response.json() : { error: `HTTP Error ${response.status}: Failed to connect or received non-JSON response.` };
+        let data = {};
+        
+        // CRITICAL FIX: Only attempt to parse JSON if the content type is JSON.
+        if (isJson) {
+            data = await response.json();
+        } else if (!response.ok) {
+            // Handle non-JSON server errors
+            data = { error: `HTTP Error ${response.status}: Failed to connect or received non-JSON response.` };
+        } else {
+            // Assume success with no content if not JSON and not an error
+            data = { success: true, message: "Operation completed successfully (No content)." };
+        }
         
         if (!response.ok) {
             // Throw an error with the backend's message
             throw new Error(data.error || `Server responded with status ${response.status}`);
         }
         return data;
+
     } catch (error) {
         console.error("Fetch Error:", error);
+        // The error message from the try block should be displayed to the user
         throw new Error(`Transaction Failed: ${error.message}`);
     }
 };
@@ -76,6 +87,8 @@ const App = () => {
     const [recordPatientAddress, setRecordPatientAddress] = useState('');
     const [ipfsHash, setIpfsHash] = useState('');
     const [viewRecordId, setViewRecordId] = useState('');
+    // Doctor address for viewing records
+    const [viewDoctorAddress, setViewDoctorAddress] = useState('');
     const [viewedRecord, setViewedRecord] = useState(null);
 
     // Helper to set and clear status messages
@@ -110,14 +123,14 @@ const App = () => {
             });
             displayStatus(`${role.toUpperCase()} Registered Successfully!`, 'success');
             
-            // Replaced prompt() with a custom modal/input field for address entry
-            // This is safer and better UX than using window.prompt()
             const enteredAddress = window.prompt(`Registration successful for ${name}. In a real dApp, the address would be derived automatically. Please manually enter the ${role}'s public address linked to this key for display:`);
             
             if (role === 'patient') {
                 setPatientAddress(enteredAddress || 'N/A');
             } else {
                 setDoctorAddress(enteredAddress || 'N/A');
+                // Auto-fill the viewDoctorAddress for convenience
+                setViewDoctorAddress(enteredAddress || 'N/A'); 
             }
 
 
@@ -231,28 +244,29 @@ const App = () => {
         setViewedRecord(null);
         setStatus({ message: '', type: '' });
         
-        if (!viewRecordId) {
-            displayStatus('Please enter a Record ID.', 'error');
+        if (!viewRecordId || !viewDoctorAddress) {
+            displayStatus('Please enter a Record ID and your registered Doctor Address.', 'error');
             setIsLoading(false);
             return;
         }
 
-        const url = `${SERVER_URL}/record/${viewRecordId}`;
+        // Changed to POST and sending data in the body
+        const url = `${SERVER_URL}/record/view`;
         
         try {
-            const record = await safeFetch(url);
+            const record = await safeFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: viewRecordId, 
+                    doctorAddress: viewDoctorAddress 
+                })
+            });
             
-            // Correct mapping based on EHRContract.sol's Record struct
-            const formattedRecord = {
-                ID: viewRecordId,
-                Patient: record.patient,
-                Doctor: record.doctor,
-                'Data Hash (IPFS)': record.dataHash,
-                Timestamp: new Date(Number(record.timestamp) * 1000).toLocaleString(),
-            };
-            setViewedRecord(formattedRecord);
+            setViewedRecord(record);
             displayStatus(`Record #${viewRecordId} fetched successfully.`, 'success');
         } catch (error) {
+            // Error handling will catch the 403 Forbidden or 404 Not Found errors from the backend check
             displayStatus(error.message, 'error');
         } finally {
             setIsLoading(false);
@@ -330,7 +344,7 @@ const App = () => {
                 >
                     <Stethoscope className="w-12 h-12 text-blue-400 mb-3" />
                     <span className="text-xl font-bold text-white">Doctor</span>
-                    <p className="text-sm text-gray-400 text-center mt-1">Register & add new records.</p>
+                    <p className="text-sm text-gray-400 text-center mt-1">Register & add/view records.</p>
                 </div>
             </div>
         </div>
@@ -461,7 +475,16 @@ const App = () => {
 
             {/* View Specific Record */}
             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-blue-500/30">
-                <h3 className="text-xl font-semibold text-white mb-4">3. View Specific Record</h3>
+                <h3 className="text-xl font-semibold text-white mb-4">3. View Specific Record (Doctor Check)</h3>
+                
+                {/* INPUT FOR DOCTOR ADDRESS */}
+                <Input 
+                    label="Your Doctor Address (Required)" 
+                    value={viewDoctorAddress} 
+                    onChange={setViewDoctorAddress} 
+                    placeholder="Your 0x address for verification" 
+                />
+                
                 <Input 
                     label="Record ID" 
                     value={viewRecordId} 
@@ -476,7 +499,8 @@ const App = () => {
                 {viewedRecord && (
                     <div className="mt-4 p-4 bg-gray-700 rounded-lg text-sm">
                         <p className="text-lg font-bold text-white mb-2">Record Details</p>
-                        {Object.entries(viewedRecord).map(([key, value]) => (
+                        {/* Ensure object is iterable, using safe guard */}
+                        {Object.entries(viewedRecord || {}).map(([key, value]) => (
                             <div key={key} className="flex justify-between py-1 border-b border-gray-600 last:border-b-0">
                                 <span className="font-medium text-gray-300">{key}:</span>
                                 <span className="font-mono text-right text-teal-300 break-all">{value}</span>
